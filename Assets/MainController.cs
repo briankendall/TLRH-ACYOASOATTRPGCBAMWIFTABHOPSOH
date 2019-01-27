@@ -16,6 +16,13 @@ public class MainController : MonoBehaviour
     public Sprite eyesGooglySprite;
     public Sprite eyesSurprisedSprite;
     
+    enum Face {
+        normal,
+        googly,
+        shifty,
+        surprised
+    };
+    
     [System.Serializable]
     class State {
         public float inputX = 0;
@@ -26,13 +33,23 @@ public class MainController : MonoBehaviour
         public int currentPageIndex = 0;
         public List<string> dialoguePages = new List<string>();
         public List<string> options = new List<string>();
-        public VoiceSynth.VoiceStyle voiceStyle = VoiceSynth.VoiceStyle.Normal;
+        public VoiceStyle voiceStyle = VoiceStyle.Normal;
         public double nextLetterTimestamp = 0;
         public double nextMouthMovementTimestamp = 0;
         
         public State Clone() {
             return (State)MemberwiseClone();
         }
+    };
+    
+    class DialogueSection {
+        public string text = "";
+        public VoiceStyle voiceStyle = VoiceStyle.Normal;
+        public Face face;
+        public bool lookingDown = false;
+        public string[] optionsText;
+        public int[] optionsLeadsTo;
+        public int id;
     };
     
     const double textCharacterEntryDuration = 0.04;
@@ -46,6 +63,8 @@ public class MainController : MonoBehaviour
     Text optionsText;
     VoiceSynth voiceSynth;
     SpriteRenderer mouthSpriteRenderer;
+    SpriteRenderer eyesSpriteRenderer;
+    SpriteRenderer headSpriteRenderer;
     State state = new State();
     State previousState = new State();
     Bucket mouthSpriteBucket = new Bucket(1);
@@ -54,6 +73,8 @@ public class MainController : MonoBehaviour
         dialogueText = dialogueBox.GetComponent<Text>();
         optionsText = optionsBox.GetComponent<Text>();
         voiceSynth = GetComponent<VoiceSynth>();
+        eyesSpriteRenderer = eyesSprite.GetComponent<SpriteRenderer>();
+        headSpriteRenderer = headSprite.GetComponent<SpriteRenderer>();
         mouthSpriteRenderer = mouthSprite.GetComponent<SpriteRenderer>();
         mouthSpriteBucket.FillBucketWithRange(-1, 3);
         
@@ -61,21 +82,57 @@ public class MainController : MonoBehaviour
         optionsText.text = "";
         arrow.SetActive(false);
         
-        string dialogue = ("This is some test text. Whoop dee doo! It should appear promptly. Here is some more text. Wheee! This is a thingy. " +
+        DialogueSection section = new DialogueSection();
+        section.text = ("This is some test text. Whoop dee doo! It should appear promptly. Here is some more text. Wheee! This is a thingy. " +
                           "This text is going to keep going. Doop dee doo. This text is going to keep going.\n\nDoop dee doo. " +
                           "This text is going to keep going. Doop dee doo. This text is going to keep going. Doop dee doo. " +
                           "This text is going to keep going. Doop dee doo. This text is going to keep going.\n\nDoop dee doo. " +
                           "This text is going to keep going. Doop dee doo. This text is going to keep going. Doop dee doo. ");
-        state.dialoguePages = breakDialogueIntoPages(dialogue);
         
-        for(int i = 0; i < state.dialoguePages.Count; ++i) {
-            Debug.Log("page " + i + ":");
-            Debug.Log(state.dialoguePages[i]);
+        section.face = Face.googly;
+        section.lookingDown = true;
+        section.voiceStyle = VoiceStyle.Narrow;
+        section.optionsText = new string[] {"Option 1!", "Another option!", "Huh?"};
+        section.optionsLeadsTo = new int[] {0, 0, 0};
+        section.id = 0;
+        
+        
+        prepareSection(section);
+        
+    }
+
+    void prepareSection(DialogueSection section) {
+        dialogueText.text = "";
+        optionsText.text = "";
+        arrow.SetActive(false);
+        state.dialoguePages = breakDialogueIntoPages(section.text);
+        state.voiceStyle = section.voiceStyle;
+        
+        headSpriteRenderer.enabled = section.lookingDown;
+        
+        switch(section.face) {
+            case Face.googly:
+                eyesSpriteRenderer.sprite = eyesGooglySprite;
+                eyesSpriteRenderer.enabled = true;
+                break;
+            case Face.shifty:
+                eyesSpriteRenderer.sprite = eyesShiftySprite;
+                eyesSpriteRenderer.enabled = true;
+                break;
+            case Face.surprised:
+                eyesSpriteRenderer.sprite = eyesSurprisedSprite;
+                eyesSpriteRenderer.enabled = true;
+                break;
+            case Face.normal:
+                eyesSpriteRenderer.enabled = false;
+                break;
         }
         
-        state.options.Add("Option 1! Hey hey!");
-        state.options.Add("Option 2! Wut wut!");
-        state.options.Add("Option 3! Duh duh duh!");
+        state.options.Clear();
+        
+        foreach(string option in section.optionsText) {
+            state.options.Add(option);
+        }
     }
 
     // Update is called once per frame
@@ -106,9 +163,13 @@ public class MainController : MonoBehaviour
             //    setupOptions();
             //}
             
-            if (dialogueText.text.Length == currentDialogue.Length && state.currentPageIndex < state.dialoguePages.Count-1) {
-                dialogueText.text += "\n< Continued... >";
-                state.waitingForMoreText = true;
+            if (dialogueText.text.Length == currentDialogue.Length) {
+                if (state.currentPageIndex < state.dialoguePages.Count-1) {
+                    dialogueText.text += "\n< Continued... >";
+                    state.waitingForMoreText = true;
+                } else {
+                    finishedSpeakingForSection();
+                }
             }
             
         } else {
@@ -116,7 +177,6 @@ public class MainController : MonoBehaviour
             mouthSpriteRenderer.enabled = false;
             
             if (state.waitingForMoreText && state.inputFire > 0 && previousState.inputFire == 0) {
-                
                 state.currentPageIndex += 1;
                 dialogueText.text = "";
                 state.waitingForMoreText = false;
@@ -124,6 +184,11 @@ public class MainController : MonoBehaviour
         }
         
         previousState = state.Clone();
+    }
+    
+    void finishedSpeakingForSection() {
+        headSpriteRenderer.enabled = false;
+        setupOptions();
     }
     
     void setupOptions() {
