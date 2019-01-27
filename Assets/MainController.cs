@@ -22,9 +22,12 @@ public class MainController : MonoBehaviour
         public float inputY = 0;
         public float inputFire = 0;
         
-        public string dialogue = "";
+        public bool waitingForMoreText = false;
+        public int currentPageIndex = 0;
+        public List<string> dialoguePages = new List<string>();
+        public List<string> options = new List<string>();
         public VoiceSynth.VoiceStyle voiceStyle = VoiceSynth.VoiceStyle.Normal;
-        public double lastLetterTimestamp = 0;
+        public double nextLetterTimestamp = 0;
         public double nextMouthMovementTimestamp = 0;
         
         public State Clone() {
@@ -35,6 +38,7 @@ public class MainController : MonoBehaviour
     const double textCharacterEntryDuration = 0.04;
     const double textCharacterEntryDurationFast = 0.0;
     const int dialogueMaxLineLength = 28;
+    const int dialogueMaxVisibleLines = 17;
     const float minMouthMovementDuration = 0.08f;
     const float maxMouthMovementDuration = 0.15f;
     
@@ -57,35 +61,40 @@ public class MainController : MonoBehaviour
         optionsText.text = "";
         arrow.SetActive(false);
         
-        state.dialogue = "This is some test text. Whoop dee doo! It should appear promptly. Here is some more text. Wheee! This is a thingy.";
+        string dialogue = ("This is some test text. Whoop dee doo! It should appear promptly. Here is some more text. Wheee! This is a thingy. " +
+                          "This text is going to keep going. Doop dee doo. This text is going to keep going.\n\nDoop dee doo. " +
+                          "This text is going to keep going. Doop dee doo. This text is going to keep going. Doop dee doo. " +
+                          "This text is going to keep going. Doop dee doo. This text is going to keep going.\n\nDoop dee doo. " +
+                          "This text is going to keep going. Doop dee doo. This text is going to keep going. Doop dee doo. ");
+        state.dialoguePages = breakDialogueIntoPages(dialogue);
+        
+        for(int i = 0; i < state.dialoguePages.Count; ++i) {
+            Debug.Log("page " + i + ":");
+            Debug.Log(state.dialoguePages[i]);
+        }
+        
+        state.options.Add("Option 1! Hey hey!");
+        state.options.Add("Option 2! Wut wut!");
+        state.options.Add("Option 3! Duh duh duh!");
     }
 
     // Update is called once per frame
     void Update() {
-        State holdPreviousState = state.Clone();
         double time = Time.time;
         state.inputX = Input.GetAxis("Horizontal");
         state.inputY = Input.GetAxis("Vertical");
         state.inputFire = Input.GetAxis("Fire1");
         
-        if (dialogueText.text.Length < state.dialogue.Length) {
+        string currentDialogue = state.dialoguePages[state.currentPageIndex];
+        
+        if (dialogueText.text.Length < currentDialogue.Length) {
             voiceSynth.talking = true;
-            double nextLetterTimestamp = state.lastLetterTimestamp + ((state.inputFire > 0) ? textCharacterEntryDurationFast : textCharacterEntryDuration);
             
-            if (time >= nextLetterTimestamp) {
-                char nextLetter = state.dialogue[dialogueText.text.Length];
-                
-                if (nextLetter == ' ') {
-                    int currentLineCount = countLinesInDialogueText(dialogueText.text);
-                    int nextLineCount = countLinesInDialogueText(dialogueText.text + ' ' + findNextWordInTextAfterIndex(state.dialogue, dialogueText.text.Length));
-                    
-                    if (nextLineCount > currentLineCount) {
-                        nextLetter = '\n';
-                    }
-                }
+            if (time >= state.nextLetterTimestamp) {
+                char nextLetter = currentDialogue[dialogueText.text.Length];
                 
                 dialogueText.text += nextLetter;
-                state.lastLetterTimestamp = time;
+                state.nextLetterTimestamp = time + ((state.inputFire > 0) ? textCharacterEntryDurationFast : textCharacterEntryDuration);
             }
             
             if (time >= state.nextMouthMovementTimestamp) {
@@ -93,12 +102,36 @@ public class MainController : MonoBehaviour
                 state.nextMouthMovementTimestamp = time + Random.Range(minMouthMovementDuration, maxMouthMovementDuration);
             }
             
+            //if (dialogueText.text.Length >= state.dialogue.Length) {
+            //    setupOptions();
+            //}
+            
+            if (dialogueText.text.Length == currentDialogue.Length && state.currentPageIndex < state.dialoguePages.Count-1) {
+                dialogueText.text += "\n< Continued... >";
+                state.waitingForMoreText = true;
+            }
+            
         } else {
             voiceSynth.talking = false;
             mouthSpriteRenderer.enabled = false;
+            
+            if (state.waitingForMoreText && state.inputFire > 0 && previousState.inputFire == 0) {
+                
+                state.currentPageIndex += 1;
+                dialogueText.text = "";
+                state.waitingForMoreText = false;
+            }
         }
         
-        previousState = holdPreviousState;
+        previousState = state.Clone();
+    }
+    
+    void setupOptions() {
+        optionsText.text = "";
+        
+        foreach(string option in state.options) {
+            
+        }
     }
     
     void pickRandomMouthSprite() {
@@ -127,39 +160,84 @@ public class MainController : MonoBehaviour
         return result;
     }
     
-    int countLinesInDialogueText(string text) {
+    List<string> breakDialogueIntoPages(string text) {
+        List<string> lines = breakTextIntoLines(text);
+        
+        for(int i = 0; i < lines.Count; ++i) {
+            Debug.Log("line " + i + ": '" + lines[i] + "'");
+        }
+        
+        List<string> result = new List<string>();
+        string currentPage = "";
         int lineCount = 0;
-        int lineCharCount = 0;
-        int positionOfLastSpace = -1;
+        
+        for(int i = 0; i < lines.Count; ++i) {
+            currentPage += lines[i] + "\n";
+            lineCount += 1;
+            
+            if (lineCount >= dialogueMaxVisibleLines-1 && (i != lines.Count-1)) {
+                result.Add(currentPage.Trim());
+                currentPage = "";
+                lineCount = 0;
+            }
+        }
+        
+        if (currentPage.Length > 0) {
+            result.Add(currentPage.Trim());
+        }
+        
+        return result;
+    }
+    
+    List<string> breakTextIntoLines(string text) {
+        List<string> result = new List<string>();
+        string buffer = "";
+        string lineBuffer = "";
+        
+        // ................X
+        // asdf asdf asdf asdf^
+        // asdfsdf asdfasdff ^
+        // asdfsdf asdfasdf\n^
+        // asdfsdf asdfasdffasd\n^
+        //
         
         for(int i = 0; i < text.Length; ++i) {
-            lineCharCount += 1;
-            
-            if (text[i] == ' ') {
-                positionOfLastSpace = i;
+            if (text[i] != ' ' && text[i] != '\n') {
+                if ((buffer.Length + lineBuffer.Length) >= dialogueMaxLineLength) {
+                    result.Add(lineBuffer);
+                    lineBuffer = "";
+                    buffer = buffer.TrimStart(null);
+                }
+                
+                buffer += text[i];
+                continue;
             }
             
             if (text[i] == '\n') {
-                positionOfLastSpace = -1;
-                lineCharCount = 0;
-                lineCount += 1;
+                lineBuffer += buffer;
+                result.Add(lineBuffer);
+                buffer = "";
+                lineBuffer = "";
                 continue;
             }
             
-            if (lineCharCount <= dialogueMaxLineLength) {
+            // current char is a space
+            
+            if ((buffer.Length + lineBuffer.Length) >= dialogueMaxLineLength) {
+                lineBuffer += buffer;
+                result.Add(lineBuffer);
+                buffer = "";
+                lineBuffer = "";
                 continue;
             }
             
-            if (positionOfLastSpace != -1) {
-                lineCharCount = i - positionOfLastSpace + 1;
-            } else {
-                lineCharCount = 1;
-            }
-            
-            positionOfLastSpace = -1;
-            lineCount += 1;
+            lineBuffer += buffer;
+            buffer = " ";
         }
         
-        return lineCount;
+        lineBuffer += buffer;
+        result.Add(lineBuffer);
+        
+        return result;
     }
 }
