@@ -15,6 +15,10 @@ public class MainController : MonoBehaviour
     public Sprite eyesShiftySprite;
     public Sprite eyesGooglySprite;
     public Sprite eyesSurprisedSprite;
+    public AudioSource audioSource;
+    public AudioClip selectAudioClip;
+    public AudioClip invalidAudioClip;
+    public AudioClip submitAudioClip;
     
     enum Face {
         normal,
@@ -33,9 +37,11 @@ public class MainController : MonoBehaviour
         public int currentPageIndex = 0;
         public List<string> dialoguePages = new List<string>();
         public List<string> options = new List<string>();
+        public List<int> optionsLeadTo = new List<int>();
         public VoiceStyle voiceStyle = VoiceStyle.Normal;
         public double nextLetterTimestamp = 0;
         public double nextMouthMovementTimestamp = 0;
+        public int selectedOption = 0;
         
         public State Clone() {
             return (State)MemberwiseClone();
@@ -68,6 +74,9 @@ public class MainController : MonoBehaviour
     State state = new State();
     State previousState = new State();
     Bucket mouthSpriteBucket = new Bucket(1);
+    Vector3 arrowOrigin;
+    
+    Dictionary<int, DialogueSection> sections;
     
     void Start() {
         dialogueText = dialogueBox.GetComponent<Text>();
@@ -78,26 +87,42 @@ public class MainController : MonoBehaviour
         mouthSpriteRenderer = mouthSprite.GetComponent<SpriteRenderer>();
         mouthSpriteBucket.FillBucketWithRange(-1, 3);
         
+        arrowOrigin = arrow.transform.localPosition;
+        
         dialogueText.text = "";
         optionsText.text = "";
         arrow.SetActive(false);
         
-        DialogueSection section = new DialogueSection();
-        section.text = ("This is some test text. Whoop dee doo! It should appear promptly. Here is some more text. Wheee! This is a thingy. " +
+        sections = new Dictionary<int, DialogueSection>();
+        
+        sections[0] = new DialogueSection();
+        /*section.text = ("This is some test text. Whoop dee doo! It should appear promptly. Here is some more text. Wheee! This is a thingy. " +
                           "This text is going to keep going. Doop dee doo. This text is going to keep going.\n\nDoop dee doo. " +
                           "This text is going to keep going. Doop dee doo. This text is going to keep going. Doop dee doo. " +
                           "This text is going to keep going. Doop dee doo. This text is going to keep going.\n\nDoop dee doo. " +
                           "This text is going to keep going. Doop dee doo. This text is going to keep going. Doop dee doo. ");
+        */
+        sections[0].text = "Huh? What?";
+        sections[0].face = Face.shifty;
+        sections[0].lookingDown = false;
+        sections[0].voiceStyle = VoiceStyle.Wide;
+        sections[0].optionsText = new string[] {"Option 1!", "Another option!", "Huh?"};
+        sections[0].optionsLeadsTo = new int[] {1, 1, 1};
         
-        section.face = Face.googly;
-        section.lookingDown = true;
-        section.voiceStyle = VoiceStyle.Narrow;
-        section.optionsText = new string[] {"Option 1!", "Another option!", "Huh?"};
-        section.optionsLeadsTo = new int[] {0, 0, 0};
-        section.id = 0;
+        sections[1] = new DialogueSection();
+        /*sections[1].text = ("This is some test text. Whoop dee doo! It should appear promptly. Here is some more text. Wheee! This is a thingy. " +
+                          "This text is going to keep going. Doop dee doo. This text is going to keep going.\n\nDoop dee doo. " +
+                          "This text is going to keep going. Doop dee doo. This text is going to keep going. Doop dee doo. " +
+                          "This text is going to keep going. Doop dee doo. This text is going to keep going.\n\nDoop dee doo. " +
+                          "This text is going to keep going. Doop dee doo. This text is going to keep going. Doop dee doo. ");*/
+        sections[1].text = "asdf\n\n\nasdfasdf\n\n\nasdfadsf\n\n\nasdfasdfadsf\n\n\nasdfasdf\n\n\nasdfadsf\n\n\nasdfasdfds\n\n\nasdfasdf";
+        sections[1].face = Face.googly;
+        sections[1].lookingDown = true;
+        sections[1].voiceStyle = VoiceStyle.Narrow;
+        sections[1].optionsText = new string[] {"Hey there!"};
+        sections[1].optionsLeadsTo = new int[] {0};
         
-        
-        prepareSection(section);
+        prepareSection(sections[0]);
         
     }
 
@@ -106,6 +131,7 @@ public class MainController : MonoBehaviour
         optionsText.text = "";
         arrow.SetActive(false);
         state.dialoguePages = breakDialogueIntoPages(section.text);
+        state.currentPageIndex = 0;
         state.voiceStyle = section.voiceStyle;
         
         headSpriteRenderer.enabled = section.lookingDown;
@@ -129,9 +155,14 @@ public class MainController : MonoBehaviour
         }
         
         state.options.Clear();
+        state.optionsLeadTo.Clear();
         
         foreach(string option in section.optionsText) {
             state.options.Add(option);
+        }
+        
+        foreach(int id in section.optionsLeadsTo) {
+            state.optionsLeadTo.Add(id);
         }
     }
 
@@ -176,14 +207,48 @@ public class MainController : MonoBehaviour
             voiceSynth.talking = false;
             mouthSpriteRenderer.enabled = false;
             
-            if (state.waitingForMoreText && state.inputFire > 0 && previousState.inputFire == 0) {
-                state.currentPageIndex += 1;
-                dialogueText.text = "";
-                state.waitingForMoreText = false;
+            if (state.waitingForMoreText) {
+                if (state.inputFire > 0 && previousState.inputFire == 0) {
+                    state.currentPageIndex += 1;
+                    dialogueText.text = "";
+                    state.waitingForMoreText = false;
+                }
+            } else {
+                handleOptions();
             }
         }
         
         previousState = state.Clone();
+    }
+    
+    void handleOptions() {
+        if (state.inputY < 0 && previousState.inputY >= 0) {
+            if (state.selectedOption < state.options.Count-1) {
+                audioSource.PlayOneShot(selectAudioClip);
+                state.selectedOption += 1;
+            } else {
+                audioSource.PlayOneShot(invalidAudioClip);
+            }
+        }
+        
+        if (state.inputY > 0 && previousState.inputY <= 0) {
+            if (state.selectedOption > 0) {
+                audioSource.PlayOneShot(selectAudioClip);
+                state.selectedOption -= 1;
+            } else {
+                audioSource.PlayOneShot(invalidAudioClip);
+            }
+        }
+        
+        arrow.transform.localPosition = new Vector3(arrowOrigin.x,
+                                                    arrowOrigin.y + (-1.162f / 3f)*state.selectedOption,
+                                                    arrowOrigin.z);
+        
+        if (state.inputFire > 0 && previousState.inputFire <= 0) {
+            audioSource.PlayOneShot(submitAudioClip);
+            
+            prepareSection(sections[state.optionsLeadTo[state.selectedOption]]);
+        }
     }
     
     void finishedSpeakingForSection() {
@@ -195,8 +260,12 @@ public class MainController : MonoBehaviour
         optionsText.text = "";
         
         foreach(string option in state.options) {
-            
+            optionsText.text += option + "\n";
         }
+        
+        arrow.transform.localPosition = arrowOrigin;
+        arrow.SetActive(true);
+        state.selectedOption = 0;
     }
     
     void pickRandomMouthSprite() {
