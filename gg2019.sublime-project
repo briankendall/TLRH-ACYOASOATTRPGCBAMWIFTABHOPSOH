@@ -1,0 +1,38 @@
+{
+    "folders":
+    [
+        {
+            "follow_symlinks": true,
+            "path": ".",
+            "file_exclude_patterns":
+            [
+                "*.dll",
+                "*.wav",
+                "*.aif",
+                "*.meta",
+                "*.csproj",
+                "*.booproj",
+                "*.unityproj",
+                "*.controller",
+                "*.anim",
+                "*.code-workspace",
+                "*~",
+                "*.sublime-project"
+            ],
+            "folder_exclude_patterns":
+            [
+                "build",
+                "Library",
+                "nonasset-images",
+                "obj",
+                "ProjectSettings",
+                "Temp",
+                "UnityPackageManager",
+                ".vscode",
+                ".vs",
+                "graphics"
+            ]
+        }
+    ],
+    "solution_file": "ggj2019.sln"
+}
