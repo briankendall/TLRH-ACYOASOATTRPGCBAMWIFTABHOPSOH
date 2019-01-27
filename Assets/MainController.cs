@@ -165,8 +165,8 @@ public class MainController : MonoBehaviour
         sections[id].face = Face.shifty;
         sections[id].lookingDown = false;
         sections[id].voiceStyle = VoiceStyle.Narrow;
-        sections[id].optionsText = new string[] {"..."};
-        sections[id].optionsLeadsTo = new int[] {7};
+        sections[id].optionsText = new string[] {"...", ""};
+        sections[id].optionsLeadsTo = new int[] {7, 28};
         
         id = 7;
         sections[id] = new DialogueSection();
@@ -369,6 +369,16 @@ public class MainController : MonoBehaviour
                                                   "no fun at all and there's no way to win. Seriously, what the hell? Good god man what sort of " +
                                                   "person goes through the effort of making something like this? I really just don't get it. It's " + 
                                                   "not even that funny, and it's really just the same tired joke over and over again.")};
+        sections[id].optionsLeadsTo = new int[] {-1};
+        
+        id = 28;
+        sections[id] = new DialogueSection();
+        sections[id].text = ("Oh my goodness! You found the secret area! Congratulations! Please enjoy your reward, a complementary locally-sourced " +
+                             "organic gluten-free independently-produced 'game over' screen!");
+        sections[id].face = Face.surprised;
+        sections[id].lookingDown = false;
+        sections[id].voiceStyle = VoiceStyle.Wide;
+        sections[id].optionsText = new string[] {"Hooray! Hey, wait a minut--"};
         sections[id].optionsLeadsTo = new int[] {-1};
         
         prepareSection(sections[0]);
