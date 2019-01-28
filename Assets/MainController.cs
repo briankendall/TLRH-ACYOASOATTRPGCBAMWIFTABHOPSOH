@@ -34,9 +34,10 @@ public class MainController : MonoBehaviour
     
     [System.Serializable]
     class State {
-        public float inputX = 0;
-        public float inputY = 0;
-        public float inputFire = 0;
+        public bool inputUp;
+        public bool inputDown;
+        public bool inputSelect;
+        public bool inputReset;
         
         public bool waitingForMoreText = false;
         public int currentPageIndex = 0;
@@ -106,6 +107,7 @@ public class MainController : MonoBehaviour
         sections[id].text = ("Hey there! Welcome to try out my totally awesome amazing incredible really good -- like it's totally going to rock your " +
                              "socks -- kind of a tabletop RPG role playing game? I set the entire thing up myself, including the rules and the system. " +
                              "It's going to go great.");
+        sections[id].text = "Duh duh duh!";
         sections[id].face = Face.normal;
         sections[id].lookingDown = false;
         sections[id].voiceStyle = VoiceStyle.Normal;
@@ -115,11 +117,12 @@ public class MainController : MonoBehaviour
         id = 1;
         sections[id] = new DialogueSection();
         sections[id].text = ("Okay, we're going to start off making a character for you. Would you prefer to play a wizard, a mage, or a spell-caster?");
+        sections[id].text = "Duh duh duh!";
         sections[id].face = Face.normal;
         sections[id].lookingDown = false;
         sections[id].voiceStyle = VoiceStyle.Normal;
         sections[id].optionsText = new string[] {"Wizard", "Mage", "Spell-caster", "Totally OP fighter that has maxed out stats"};
-        sections[id].optionsLeadsTo = new int[] {3, 3, 3, 2};
+        sections[id].optionsLeadsTo = new int[] {3, 3, 3, -1}; //2};
         
         id = 2;
         sections[id] = new DialogueSection();
@@ -432,12 +435,19 @@ public class MainController : MonoBehaviour
     // Update is called once per frame
     void Update() {
         double time = Time.time;
-        state.inputX = Input.GetAxis("Horizontal");
-        state.inputY = Input.GetAxis("Vertical");
-        state.inputFire = Input.GetAxis("Fire1");
+        state.inputUp = Input.GetAxis("Up") > 0;
+        state.inputDown = Input.GetAxis("Down") < 0;
+        state.inputSelect = Input.GetAxis("Select") != 0;
+        state.inputReset = Input.GetAxis("Reset after game over") != 0;
+        
+        if (Input.GetAxis("Exit game") != 0) {
+            Application.Quit();
+        }
+        
+        Debug.Log("" + Input.GetAxis("Up") + "  " + Input.GetAxis("Down"));
         
         if (gameoverSprite.activeSelf) {
-            if (Input.GetAxis("Fire2") > 0) {
+            if (state.inputReset) {
                 SceneManager.LoadScene(SceneManager.GetActiveScene().name);
             }
             return;
@@ -452,7 +462,7 @@ public class MainController : MonoBehaviour
                 char nextLetter = currentDialogue[dialogueText.text.Length];
                 
                 dialogueText.text += nextLetter;
-                state.nextLetterTimestamp = time + ((state.inputFire > 0) ? textCharacterEntryDurationFast : textCharacterEntryDuration);
+                state.nextLetterTimestamp = time + (state.inputSelect ? textCharacterEntryDurationFast : textCharacterEntryDuration);
             }
             
             if (time >= state.nextMouthMovementTimestamp) {
@@ -478,7 +488,7 @@ public class MainController : MonoBehaviour
             mouthSpriteRenderer.enabled = false;
             
             if (state.waitingForMoreText) {
-                if (state.inputFire > 0 && previousState.inputFire == 0) {
+                if (state.inputSelect && !previousState.inputSelect) {
                     state.currentPageIndex += 1;
                     dialogueText.text = "";
                     state.waitingForMoreText = false;
@@ -497,7 +507,7 @@ public class MainController : MonoBehaviour
     }
     
     void handleOptions() {
-        if (state.inputY < 0 && previousState.inputY >= 0) {
+        if (state.inputDown && !previousState.inputDown) {
             if (state.selectedOption < state.options.Count-1) {
                 audioSource.PlayOneShot(selectAudioClip);
                 state.selectedOption += 1;
@@ -506,7 +516,7 @@ public class MainController : MonoBehaviour
             }
         }
         
-        if (state.inputY > 0 && previousState.inputY <= 0) {
+        if (state.inputUp && !previousState.inputUp) {
             if (state.selectedOption > 0) {
                 audioSource.PlayOneShot(selectAudioClip);
                 state.selectedOption -= 1;
@@ -519,7 +529,7 @@ public class MainController : MonoBehaviour
                                                     arrowOrigin.y + (-1.162f / 3f)*state.selectedOption,
                                                     arrowOrigin.z);
         
-        if (state.inputFire > 0 && previousState.inputFire <= 0) {
+        if (state.inputSelect && !previousState.inputSelect) {
             audioSource.PlayOneShot(submitAudioClip);
             
             if (state.optionsLeadTo[state.selectedOption] == -1) {
