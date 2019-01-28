@@ -107,7 +107,6 @@ public class MainController : MonoBehaviour
         sections[id].text = ("Hey there! Welcome to try out my totally awesome amazing incredible really good -- like it's totally going to rock your " +
                              "socks -- kind of a tabletop RPG role playing game? I set the entire thing up myself, including the rules and the system. " +
                              "It's going to go great.");
-        sections[id].text = "Duh duh duh!";
         sections[id].face = Face.normal;
         sections[id].lookingDown = false;
         sections[id].voiceStyle = VoiceStyle.Normal;
@@ -117,12 +116,11 @@ public class MainController : MonoBehaviour
         id = 1;
         sections[id] = new DialogueSection();
         sections[id].text = ("Okay, we're going to start off making a character for you. Would you prefer to play a wizard, a mage, or a spell-caster?");
-        sections[id].text = "Duh duh duh!";
         sections[id].face = Face.normal;
         sections[id].lookingDown = false;
         sections[id].voiceStyle = VoiceStyle.Normal;
         sections[id].optionsText = new string[] {"Wizard", "Mage", "Spell-caster", "Totally OP fighter that has maxed out stats"};
-        sections[id].optionsLeadsTo = new int[] {3, 3, 3, -1}; //2};
+        sections[id].optionsLeadsTo = new int[] {3, 3, 3, 2};
         
         id = 2;
         sections[id] = new DialogueSection();
@@ -376,8 +374,8 @@ public class MainController : MonoBehaviour
         
         id = 28;
         sections[id] = new DialogueSection();
-        sections[id].text = ("Oh my goodness! You found the secret area! Congratulations! Please enjoy your reward, a complementary locally-sourced " +
-                             "organic gluten-free independently-produced 'game over' screen!");
+        sections[id].text = ("Oh my goodness! You found the secret area! Congratulations! Please enjoy your reward, a complementary unique " +
+                             "locally-sourced organic gluten-free pasture-raised independently produced \"Game Over\" screen!");
         sections[id].face = Face.surprised;
         sections[id].lookingDown = false;
         sections[id].voiceStyle = VoiceStyle.Wide;
@@ -443,8 +441,6 @@ public class MainController : MonoBehaviour
         if (Input.GetAxis("Exit game") != 0) {
             Application.Quit();
         }
-        
-        Debug.Log("" + Input.GetAxis("Up") + "  " + Input.GetAxis("Down"));
         
         if (gameoverSprite.activeSelf) {
             if (state.inputReset) {
@@ -526,7 +522,7 @@ public class MainController : MonoBehaviour
         }
         
         arrow.transform.localPosition = new Vector3(arrowOrigin.x,
-                                                    arrowOrigin.y + (-1.162f / 3f)*state.selectedOption,
+                                                    arrowOrigin.y + (-110 / 3f)*state.selectedOption,
                                                     arrowOrigin.z);
         
         if (state.inputSelect && !previousState.inputSelect) {
@@ -586,10 +582,6 @@ public class MainController : MonoBehaviour
     List<string> breakDialogueIntoPages(string text) {
         List<string> lines = breakTextIntoLines(text);
         
-        for(int i = 0; i < lines.Count; ++i) {
-            Debug.Log("line " + i + ": '" + lines[i] + "'");
-        }
-        
         List<string> result = new List<string>();
         string currentPage = "";
         int lineCount = 0;
@@ -625,7 +617,7 @@ public class MainController : MonoBehaviour
         //
         
         for(int i = 0; i < text.Length; ++i) {
-            if (text[i] != ' ' && text[i] != '\n') {
+            if (text[i] != ' ' && text[i] != '\n' && text[i] != '-') {
                 if ((buffer.Length + lineBuffer.Length) >= dialogueMaxLineLength) {
                     result.Add(lineBuffer);
                     lineBuffer = "";
@@ -645,6 +637,20 @@ public class MainController : MonoBehaviour
             }
             
             // current char is a space
+            
+            if (text[i] == '-') {
+                if ((buffer.Length + lineBuffer.Length) >= dialogueMaxLineLength-1) {
+                    lineBuffer += buffer;
+                    result.Add(lineBuffer);
+                    buffer = "";
+                    lineBuffer = "";
+                    continue;
+                }
+                
+                lineBuffer += buffer + "-";
+                buffer = "";
+                continue;
+            }
             
             if ((buffer.Length + lineBuffer.Length) >= dialogueMaxLineLength) {
                 lineBuffer += buffer;
