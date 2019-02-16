@@ -11,3 +11,5 @@ Controls:
 - hold space - make dialogue appear faster
 - r - reset game on game over screen
 - escape - quit game
+
+[Download link](https://github.com/briankendall/ggj2019/releases/tag/v4.20)
